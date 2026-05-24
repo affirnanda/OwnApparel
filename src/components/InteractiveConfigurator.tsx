@@ -6,7 +6,7 @@
 import { useState, useRef, ChangeEvent } from "react";
 import { PRODUCTS, FABRICS, PRINT_METHODS, COLOR_OPTIONS } from "../data";
 import { SizeBreakdown, ConfiguratorState } from "../types";
-import { Shirt, Upload, Move, ZoomIn, Eye, RotateCcw, MessageSquare, HelpCircle, Check, Printer, Scale, RefreshCw } from "lucide-react";
+import { Shirt, Upload, Move, ZoomIn, Eye, RotateCcw, MessageSquare, HelpCircle, Check, Printer, Scale, RefreshCw, X, Download, Info, ExternalLink } from "lucide-react";
 
 export default function InteractiveConfigurator() {
   // Configurator state
@@ -22,6 +22,12 @@ export default function InteractiveConfigurator() {
     designPlacement: "front",
     sizes: { S: 0, M: 5, L: 5, XL: 2, XXL: 0 }
   });
+
+  // Dialog/Lightbox custom states
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxMode, setLightboxMode] = useState<"design" | "mockup">("design");
+  const [showWaInstruction, setShowWaInstruction] = useState(false);
+  const [waUrlToOpen, setWaUrlToOpen] = useState("");
 
   // Client info state
   const [clientInfo, setClientInfo] = useState({
@@ -69,6 +75,12 @@ export default function InteractiveConfigurator() {
             ...prev,
             designImage: event.target?.result as string
           }));
+          // Advance to the next step
+          setActiveTab((curr) => {
+            if (curr === "product") return "design";
+            if (curr === "design") return "sizes";
+            return curr;
+          });
         }
       };
       reader.readAsDataURL(file);
@@ -198,7 +210,7 @@ export default function InteractiveConfigurator() {
 - Cetak/Sablon: ${selectedPrintMethod.name}
 - Warna Kain: ${activeColorObject.name}
 - Peletakan Desain: Sisi ${config.designPlacement.toUpperCase()}
-- Pratinjau Desain: ${config.designImage ? "Sudah Diunggah ke Mockup" : "Melampirkan via chat"}
+- Pratinjau Desain: ${config.designImage ? "SAYA TELAH MENGUNGGAH GAMBAR DESAIN (Siap dilampirkan ke wa)" : "Melampirkan via chat"}
 
 *RINCIAN UKURAN & JUMLAH:*
 ${sizeLines || "- Tidak ada kuantitas ukuran diinput (mohon konsultasi)"}
@@ -219,7 +231,8 @@ _Pesan digenerate otomatis melalui Interactive Mockup Web. Mohon admin memeriksa
     // WhatsApp target link (format safely)
     const encodedText = encodeURIComponent(textPayload);
     const waUrl = `https://wa.me/628973809698?text=${encodedText}`;
-    window.open(waUrl, "_blank");
+    setWaUrlToOpen(waUrl);
+    setShowWaInstruction(true);
   };
 
   // SVG Garment Mockup Paths Generator
@@ -377,10 +390,21 @@ _Pesan digenerate otomatis melalui Interactive Mockup Web. Mohon admin memeriksa
             </div>
 
             {/* Simulated Cloth Mockup Canvas */}
-            <div className="bg-slate-100/70 border border-slate-100 rounded-2xl p-4 h-[380px] flex items-center justify-center relative shadow-inner overflow-hidden">
+            <div 
+              onClick={() => {
+                if (!config.designImage) {
+                  fileInputRef.current?.click();
+                }
+              }}
+              className={`border p-4 h-[380px] flex items-center justify-center relative shadow-inner overflow-hidden rounded-2xl transition-all ${
+                !config.designImage 
+                  ? "bg-slate-100/40 hover:bg-slate-100 border-dashed border-2 border-slate-350 cursor-pointer" 
+                  : "bg-slate-100/70 border-slate-100"
+              }`}
+            >
               
               {/* Dynamic Garment Vector rendered here */}
-              <div id="garment-render-viewport" className="w-full h-full flex items-center justify-center relative transition-transform duration-300">
+              <div id="garment-render-viewport" className={`w-full h-full flex items-center justify-center relative transition-transform duration-300 ${!config.designImage ? "opacity-35 scale-90" : ""}`}>
                 {renderGarmentSVG()}
 
                 {/* Overlaid Uploaded Custom Design Logo */}
@@ -408,34 +432,65 @@ _Pesan digenerate otomatis melalui Interactive Mockup Web. Mohon admin memeriksa
                       className="max-w-full max-h-full object-contain"
                     />
                   </div>
-                ) : (
-                  // Default visual indicator
-                  <div className="absolute top-[48%] pointer-events-none px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 border border-white/20 font-mono text-[9px] text-white select-none text-center">
-                    <span className="block font-bold">LOGO SABLON</span>
-                    <span className="block opacity-80 text-[7px]" style={{ color: activeColorObject.textLight ? '#ffffff' : '#000000' }}>Silakan Unggah</span>
-                  </div>
-                )}
+                ) : null}
               </div>
 
-              {/* Front / Back Toggle Overlay in top right */}
-              <div className="absolute top-4 right-4 flex bg-white/90 border border-slate-200 p-1 rounded-lg shadow-sm">
+              {/* Upload state prompt placeholder */}
+              {!config.designImage && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-transparent p-6 text-center pointer-events-none">
+                  <div className="w-12 h-12 bg-white rounded-2xl border border-slate-200 flex items-center justify-center shadow-xs text-[#0ea5e9] mb-3">
+                    <Upload className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <span className="font-display font-black text-slate-800 text-xs tracking-tight block">KOTAK UPLOADER CETAK</span>
+                  <span className="font-sans text-slate-500 text-[10px] max-w-[180px] mt-1 leading-normal">
+                    Pilih / Upload Gambar Desain untuk langsung dipasang pada Pakaian Virtual
+                  </span>
+                </div>
+              )}
+
+              {/* Front / Back Toggle Overlay in top left */}
+              <div className="absolute top-4 left-4 flex bg-white/95 border border-slate-200 p-0.5 rounded-lg shadow-sm">
                 <button
-                  onClick={() => setConfig((prev) => ({ ...prev, designPlacement: "front" }))}
-                  className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfig((prev) => ({ ...prev, designPlacement: "front" }));
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition-all ${
                     config.designPlacement === "front" ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   Depan
                 </button>
                 <button
-                  onClick={() => setConfig((prev) => ({ ...prev, designPlacement: "back" }))}
-                  className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfig((prev) => ({ ...prev, designPlacement: "back" }));
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-mono font-bold transition-all ${
                     config.designPlacement === "back" ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   Belakang
                 </button>
               </div>
+
+              {/* Lightbox Trigger Controls on top right if uploaded */}
+              {config.designImage && (
+                <div className="absolute top-4 right-4 flex space-x-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxMode("mockup");
+                      setIsLightboxOpen(true);
+                    }}
+                    className="p-1 px-2.5 bg-white/95 text-slate-700 hover:bg-slate-100 border border-slate-200 rounded-lg shadow-sm text-[10px] font-sans font-bold flex items-center space-x-1"
+                    title="Zoom in Mockup Penuh"
+                  >
+                    <ZoomIn className="w-3 h-3 text-slate-500" />
+                    <span>Zoom Mockup</span>
+                  </button>
+                </div>
+              )}
 
               {/* Watermark of Business */}
               <div className="absolute bottom-4 left-4 font-mono text-[9px] text-slate-400 select-none">
@@ -749,6 +804,89 @@ _Pesan digenerate otomatis melalui Interactive Mockup Web. Mohon admin memeriksa
                   </div>
                 </div>
 
+                {/* Upload File Section inside Step 2 */}
+                <div className="space-y-4 pt-4 border-t border-slate-100">
+                  <label className="block text-sm font-display font-black text-slate-900">
+                    Unggah File Desain / Logo Sendiri (Opsional)
+                  </label>
+                  <p className="font-sans text-xs text-slate-500">
+                    Sistem akan otomatis meletakkan file desain yang Anda pilih ke mockup virtual di sebelah kiri.
+                  </p>
+
+                  <div 
+                    onClick={() => fileInputRef.current?.click()} 
+                    className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center space-y-3 ${
+                      config.designImage 
+                        ? "border-[#0ea5e9] bg-[#0ea5e9]/5" 
+                        : "border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-slate-400"
+                    }`}
+                  >
+                    {config.designImage ? (
+                      <div className="flex flex-col items-center space-y-3">
+                        <div className="w-16 h-16 bg-white rounded-xl border border-slate-200 p-1 flex items-center justify-center shadow-md relative overflow-hidden">
+                          <img 
+                            src={config.designImage} 
+                            alt="Uploaded original design preview thumbnail" 
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-xs font-display font-bold text-slate-900 block">✓ Gambar Desain Berhasil Diunggah!</span>
+                          <span className="text-[10px] text-slate-500 block">Klik di kotak ini jika ingin mengubah atau mengganti file desain Anda.</span>
+                        </div>
+                        <div className="flex flex-wrap justify-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLightboxMode("design");
+                              setIsLightboxOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-250 rounded-lg text-[10px] font-sans font-bold shadow-sm flex items-center space-x-1"
+                          >
+                            <ZoomIn className="w-3 h-3 text-slate-500" strokeWidth={3} />
+                            <span>Lihat Desain Asli</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setLightboxMode("mockup");
+                              setIsLightboxOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-250 rounded-lg text-[10px] font-sans font-bold shadow-sm flex items-center space-x-1"
+                          >
+                            <Eye className="w-3 h-3 text-slate-500" strokeWidth={3} />
+                            <span>Zoom Mockup Baju</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeDesign();
+                            }}
+                            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-205 rounded-lg text-[10px] font-sans font-bold"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center space-y-2 py-2">
+                        <div className="w-10 h-10 rounded-full bg-[#0ea5e9]/10 text-[#0ea5e9] flex items-center justify-center">
+                          <Upload className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-display font-black text-slate-900 block">Pilih File Gambar Desain</span>
+                          <span className="text-[10px] text-slate-500 block leading-tight mt-1 max-w-[280px] mx-auto">
+                            Klik di sini untuk memilih file (.png, .jpg, .svg). Desain akan otomatis diganti jika Anda mengunggah berkas baru.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Step Actions Footer */}
                 <div className="pt-4 flex justify-between">
                   <button
@@ -978,6 +1116,218 @@ _Pesan digenerate otomatis melalui Interactive Mockup Web. Mohon admin memeriksa
         </div>
 
       </div>
+
+      {/* Lightbox / Zoom View Modal */}
+      {isLightboxOpen && (
+        <div id="lightbox-modal" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl border border-slate-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <span className="text-xs font-mono font-black text-slate-800 uppercase tracking-widest flex items-center space-x-2">
+                <ZoomIn className="w-4 h-4 text-accent-500" />
+                <span>
+                  {lightboxMode === "design" ? "Pratinjau Berkas Desain Asli" : "Pratinjau Mockup Pakaian Lebih Besar"}
+                </span>
+              </span>
+              <button
+                onClick={() => setIsLightboxOpen(false)}
+                className="p-1.5 rounded-full hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex flex-col items-center justify-center bg-slate-50/50 min-h-[380px]">
+              {lightboxMode === "design" && config.designImage ? (
+                <div className="space-y-4 text-center max-w-full">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm max-h-[350px] flex items-center justify-center overflow-auto max-w-md mx-auto">
+                    <img
+                      src={config.designImage}
+                      alt="True highres uploaded graphic"
+                      className="max-h-[300px] max-w-full object-contain mx-auto"
+                    />
+                  </div>
+                  <div className="pt-2">
+                    <a
+                      href={config.designImage}
+                      download={`desain-ownapparel-${Date.now()}.png`}
+                      className="inline-flex items-center space-x-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-display font-extrabold uppercase tracking-wider transition-colors shadow-sm"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Unduh File Desain Ini</span>
+                    </a>
+                    <p className="text-[10px] text-slate-400 font-mono mt-2">
+                      *Klik tombol di atas untuk mengunduh gambar ini ke perangkat Anda agar mudah di-attach di WhatsApp
+                    </p>
+                  </div>
+                </div>
+              ) : lightboxMode === "mockup" ? (
+                <div className="space-y-4 w-full">
+                  <div className="bg-slate-100/60 border border-slate-200/60 rounded-2xl p-6 h-[380px] w-full flex items-center justify-center relative shadow-inner overflow-hidden max-w-lg mx-auto">
+                    {/* SVG Rendered here */}
+                    <div className="w-full h-full flex items-center justify-center relative scale-110">
+                      {renderGarmentSVG()}
+
+                      {config.designImage && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: `${config.designPositionX}%`,
+                            top: `${config.designPositionY}%`,
+                            transform: `translate(-50%, -50%) scale(${config.designScale * 1.3})`,
+                            width: "55px",
+                            height: "55px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            pointerEvents: "none"
+                          }}
+                          className="border border-dashed border-slate-900/40 bg-white/20 rounded-sm"
+                        >
+                          <img
+                            src={config.designImage}
+                            alt="Mockup zoom logo"
+                            referrerPolicy="no-referrer"
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="absolute top-4 left-4 bg-white/95 px-3 py-1 border border-slate-200 text-[10px] font-mono font-bold rounded-lg text-slate-700 uppercase">
+                      SISI {config.designPlacement.toUpperCase()}
+                    </div>
+                  </div>
+                  <p className="text-center font-sans text-xs text-slate-500 max-w-sm mx-auto">
+                    Pratinjau perkiraan peletakan desain kustom Anda pada {selectedProduct.name} dengan pilihan warna kain {activeColorObject.name}.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center p-6 text-slate-400">
+                  <Info className="w-10 h-10 mx-auto opacity-50 mb-2" />
+                  <p className="text-xs">Gambar kosong atau belum diunggah.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+              <button
+                onClick={() => setIsLightboxOpen(false)}
+                className="px-5 py-2.5 bg-slate-900 text-white hover:bg-slate-800 rounded-xl text-xs font-display font-extrabold uppercase tracking-wide shadow-sm"
+              >
+                Tutup Pratinjau
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Delivery Instruction Modal */}
+      {showWaInstruction && (
+        <div id="wa-instruction-modal" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-200">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-emerald-50">
+              <span className="text-xs font-mono font-black text-emerald-800 uppercase tracking-widest flex items-center space-x-2">
+                <MessageSquare className="w-4 h-4" />
+                <span>Instruksi Order WhatsApp</span>
+              </span>
+              <button
+                onClick={() => setShowWaInstruction(false)}
+                className="p-1.5 rounded-full hover:bg-emerald-100 text-emerald-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div className="text-center pb-2">
+                <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm">
+                  <Check className="w-6 h-6" strokeWidth={3} />
+                </div>
+                <h4 className="font-display font-black text-slate-900 text-sm">
+                  Spesifikasi Siap Dikirim!
+                </h4>
+                <p className="text-xs text-slate-500 mt-1 leading-normal">
+                  Sistem telah merangkum detail pesanan kustom Anda. Mohon dibaca langkah singkat di bawah agar pesanan gampang diproses:
+                </p>
+              </div>
+
+              <div className="space-y-3 font-sans text-xs text-slate-600">
+                <div className="flex space-x-3 items-start bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
+                  <div className="w-5 h-5 bg-slate-200 text-slate-800 rounded-full flex items-center justify-center shrink-0 font-mono font-bold text-[10px]">
+                    1
+                  </div>
+                  <div>
+                    <span className="font-bold text-slate-900 block mb-0.5">Kirim Pesan Chat</span>
+                    <p className="leading-normal text-slate-500">
+                      Klik tombol &quot;Mulai Chat &amp; Kirim Sekarang&quot; di bawah. Chat WA Admin akan terbuka dengan rincian biaya &amp; ukuran Anda yang sudah terisi otomatis.
+                    </p>
+                  </div>
+                </div>
+
+                {config.designImage ? (
+                  <div className="flex space-x-3 items-start bg-sky-500/5 p-2.5 rounded-xl border border-sky-500/10">
+                    <div className="w-5 h-5 bg-sky-500 text-white rounded-full flex items-center justify-center shrink-0 font-mono font-bold text-[10px]">
+                      2
+                    </div>
+                    <div>
+                      <span className="font-bold text-sky-950 block mb-0.5">Sertakan / Lampirkan Gambar Desain</span>
+                      <p className="leading-normal text-sky-900/80">
+                        Karena WhatsApp melarang lampiran media otomatis via URL chat, mohon **lampirkan file desain Anda** secara manual di dalam ruang obrolan chat tersebut.
+                      </p>
+                      {/* Anchor download for safety */}
+                      <a
+                        href={config.designImage}
+                        download={`desain-ownapparel-${Date.now()}.png`}
+                        className="inline-flex items-center space-x-1.5 text-[10px] text-sky-600 hover:text-sky-700 hover:underline font-bold mt-1.5"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Unduh Desain Anda agar mudah dilampirkan</span>
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex space-x-3 items-start bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                    <div className="w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center shrink-0 font-mono font-bold text-[10px]">
+                      2
+                    </div>
+                    <div>
+                      <span className="font-bold text-amber-950 block mb-0.5">Kirim Gambar Desain Nanti</span>
+                      <p className="leading-normal text-amber-900/80">
+                        Anda belum mengupload gambar desain. Jangan khawatir, Anda bisa mendiskusikan atau mengirimkan gambar desain Anda nanti langsung di chat ke Admin.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex flex-col space-y-2">
+              <button
+                onClick={() => {
+                  window.open(waUrlToOpen, "_blank");
+                  setShowWaInstruction(false);
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-display font-extrabold uppercase tracking-wider shadow-md flex items-center justify-center space-x-2"
+              >
+                <span>Mulai Chat &amp; Kirim Sekarang</span>
+                <ExternalLink className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setShowWaInstruction(false)}
+                className="w-full py-2.5 hover:bg-slate-200 text-slate-700 border border-slate-250 rounded-xl text-xs font-semibold"
+              >
+                Kembali &amp; Periksa Detail
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
