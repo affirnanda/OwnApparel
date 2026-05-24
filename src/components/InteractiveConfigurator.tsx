@@ -354,7 +354,7 @@ _Pesan digenerate otomatis melalui Interactive Mockup Web. Mohon admin memeriksa
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* Left Visualizer Canvas (lg:col-span-5) */}
-          <div className="lg:col-span-5 bg-white border border-slate-200/60 rounded-3xl p-6 shadow-md relative sticky top-24">
+          <div className="lg:col-span-5 bg-white border border-slate-200/60 rounded-3xl p-6 shadow-md relative lg:sticky lg:top-24 top-0">
             
             {/* Canvas Header options */}
             <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
@@ -789,7 +789,7 @@ _Pesan digenerate otomatis melalui Interactive Mockup Web. Mohon admin memeriksa
                     Silakan input jumlah kaos/apron untuk masing-masing ukuran yang Anda butuhkan. Pesanan banyak otomatis memperoleh potongan kuantitas diskon!
                   </p>
 
-                  <div className="grid grid-cols-5 gap-3 pt-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 pt-2">
                     {(["S", "M", "L", "XL", "XXL"] as Array<keyof SizeBreakdown>).map((size) => (
                       <div key={size} className="bg-slate-50 rounded-xl p-3 border border-slate-200/60 flex flex-col items-center">
                         <span className="font-display font-black text-slate-900 text-sm mb-1">{size}</span>
