@@ -1,0 +1,6 @@
+{
+  "name": "OwnApparel",
+  "description": "Website interaktif untuk usaha konveksi pakaian dan jasa cetak printing berkualitas tinggi dengan kalkulator harga instan dan mockup desain interaktif.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
